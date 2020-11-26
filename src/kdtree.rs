@@ -1,4 +1,4 @@
-#![feature(box_syntax, box_patterns, min_const_generics)]
+//#![feature(box_syntax, box_patterns, min_const_generics)]
 
 use std::fmt::Debug;
 
