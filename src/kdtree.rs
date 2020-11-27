@@ -1,5 +1,3 @@
-//#![feature(box_syntax, box_patterns, min_const_generics)]
-
 use std::fmt::Debug;
 
 pub trait Element: PartialOrd + Clone + Debug {}
@@ -18,6 +16,10 @@ impl<T: Element, const N: usize> KDTree<T, N> {
         } else {
             Some(Self::split(pts, 0))
         }
+    }
+
+    pub fn from_iter(iter: impl IntoIterator<Item=[T; N]>) -> Option<Self> {
+        Self::new(iter.into_iter().collect::<Vec<_>>().as_mut_slice())
     }
 
     fn split(pts: &mut [[T; N]], depth: usize) -> Self {
