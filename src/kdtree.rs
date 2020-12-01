@@ -28,19 +28,19 @@ impl KDTree {
         let (left_bb, right_bb) = bb.split_along(axis, split_coord);
         let next_axis = (axis + 1) % 2;
         match pts.split_at_mut(mid) {
-            ([], [pt]) => KDTree::Leaf(pt.clone(), bb),
+            ([], [pt]) => KDTree::Leaf(*pt, bb),
             (left, [pt]) => KDTree::Split(
                 box Self::split(left, next_axis, left_bb),
                 box Empty,
                 axis,
-                pt.clone(),
+                *pt,
                 bb,
             ),
             (left, [pt, right @ ..]) => KDTree::Split(
                 box Self::split(left, next_axis, left_bb),
                 box Self::split(right, next_axis, right_bb),
                 axis,
-                pt.clone(),
+                *pt,
                 bb,
             ),
             _ => Empty,
@@ -49,7 +49,7 @@ impl KDTree {
 
     pub fn plot_to(&self, path: &str) -> ImageResult<()> {
         let img = &mut match self {
-            Split(_, _, _, _, bb) => RgbImage::from_pixel(bb.d[0], bb.d[1], WHITE),
+            Split(_, _, _, _, AABB { d: [w, h], .. }) => RgbImage::from_pixel(*w, *h, WHITE),
             _ => return Ok(()),
         };
         self.plot_inner(img, 0);
@@ -59,17 +59,17 @@ impl KDTree {
     fn plot_inner(&self, img: &mut RgbImage, axis: usize) {
         match self {
             Empty => {}
-            Leaf(pt, _) => draw_point(img, pt.clone(), 5, RED),
+            Leaf(pt, _) => draw_point(img, *pt, 5, RED),
             Split(left, right, _, pt, bb) => {
                 let next_axis = (axis + 1) % 2;
 
-                let mut p1 = bb.p.clone();
+                let mut p1 = bb.p;
                 p1[axis] = pt[axis];
-                let mut p2 = p1.clone();
+                let mut p2 = p1;
                 p2[next_axis] += bb.d[next_axis];
 
                 draw_line(img, next_axis, p1, p2, BLUE);
-                draw_point(img, pt.clone(), 5, RED);
+                draw_point(img, *pt, 5, RED);
 
                 left.plot_inner(img, next_axis);
                 right.plot_inner(img, next_axis);
@@ -84,7 +84,7 @@ impl KDTree {
 
         match self {
             Empty => panic!(),
-            Leaf(pt, _) => pt.clone(),
+            Leaf(pt, _) => *pt,
             Split(left, box Empty, _, _, _) => left.nearest(pt),
             Split(box Empty, right, _, _, _) => right.nearest(pt),
             Split(left, right, axis, split_pt, _) => {
@@ -95,12 +95,12 @@ impl KDTree {
                 };
 
                 let ppt = p.nearest(pt);
-                let dist_to_split_line = (split_pt[*axis] as i32 - pt[*axis] as i32).abs() as u32;
+                let dist_to_split = (split_pt[*axis] as i32 - pt[*axis] as i32).abs() as u32;
                 let dist_to_ppt = (dist(ppt, pt) as f64).sqrt() as u32;
-                let pts = if dist_to_split_line > dist_to_ppt {
-                    vec![ppt, split_pt.clone()]
+                let pts = if dist_to_split > dist_to_ppt {
+                    vec![ppt, *split_pt]
                 } else {
-                    vec![ppt, q.nearest(pt), split_pt.clone()]
+                    vec![ppt, q.nearest(pt), *split_pt]
                 };
 
                 pts.into_iter()
@@ -109,6 +109,36 @@ impl KDTree {
                     .unwrap()
                     .0
             }
+        }
+    }
+
+    pub fn range_search(&self, start: [u32; 2], end: [u32; 2]) -> Vec<[u32; 2]> {
+        let mut pts = vec![];
+        let bb = AABB {
+            p: start,
+            d: [end[0] - start[0], end[1] - start[1]],
+        };
+        self.range_inner(bb, &mut pts);
+        pts
+    }
+
+    fn range_inner(&self, bb: AABB, pts: &mut Vec<[u32; 2]>) {
+        match self {
+            Leaf(pt, _) if bb.contains(*pt) => pts.push(*pt),
+            Split(left, right, axis, pt, sbb) => {
+                if bb.contains(*pt) {
+                    pts.push(*pt);
+                }
+                if pt[*axis] > bb.p[*axis] && bb.p[*axis] + bb.d[*axis] >= sbb.p[*axis] {
+                    left.range_inner(bb, pts)
+                }
+                if pt[*axis] <= bb.p[*axis] + bb.d[*axis]
+                    && bb.p[*axis] + bb.d[*axis] > sbb.p[*axis]
+                {
+                    right.range_inner(bb, pts)
+                }
+            }
+            _ => (),
         }
     }
 }

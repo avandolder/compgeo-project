@@ -20,11 +20,11 @@ pub fn draw_line(
 
     if axis == 0 {
         for (x, y) in (sx..=ex).zip(repeat(sy)).filter(|(x, y)| *x < w && *y < h) {
-            img.put_pixel(x as u32, y as u32, color.clone());
+            img.put_pixel(x as u32, y as u32, color);
         }
     } else if axis == 1 {
         for (x, y) in repeat(sx).zip(sy..ey).filter(|(x, y)| *x < w && *y < h) {
-            img.put_pixel(x as u32, y as u32, color.clone());
+            img.put_pixel(x as u32, y as u32, color);
         }
     }
 }
