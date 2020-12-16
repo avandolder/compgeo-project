@@ -55,19 +55,37 @@ impl QuadTree {
         }
     }
 
+    pub fn plot_points(&self, path: String, pts: &[[u32; 2]]) {
+        for i in 0.. {
+            let img = &mut match self {
+                Quad(_, bb) => RgbImage::from_pixel(bb.d[0], bb.d[1], WHITE),
+                _ => return,
+            };
+
+            if self.plot_inner(img, 0, i) {
+                break;
+            }
+            for pt in pts {
+                draw_point(img, *pt, 5, RED);
+            }
+            img.save(path.clone() + &i.to_string() + ".png").unwrap();
+        }
+    }
+
     pub fn plot_to(&self, path: &str) -> ImageResult<()> {
         let img = &mut match self {
             Quad(_, bb) => RgbImage::from_pixel(bb.d[0], bb.d[1], WHITE),
             _ => return Ok(()),
         };
-        self.plot_inner(img);
+        self.plot_inner(img, 0, 1000);
         img.save(path)
     }
 
-    fn plot_inner(&self, img: &mut RgbImage) {
+    fn plot_inner(&self, img: &mut RgbImage, depth: usize, limit: usize) -> bool {
+        if depth > limit { return false; }
+
         match self {
-            Empty => {}
-            Leaf(pt) => draw_point(img, *pt, 5, RED),
+            Empty | Leaf(_) => true,
             // Draw the bounding box of each quadrant, then recurse.
             Quad(qs, bb) => {
                 let (cx, cy) = bb.center();
@@ -77,7 +95,9 @@ impl QuadTree {
                 } = *bb;
                 draw_line(img, 0, [x, cy], [x + w, cy], BLUE);
                 draw_line(img, 1, [cx, y], [cx, y + h], BLUE);
-                qs.iter().for_each(|q| q.plot_inner(img));
+                qs.iter()
+                    .map(|q| q.plot_inner(img, depth + 1, limit))
+                    .fold(true, |x, y| x && y)
             }
         }
     }

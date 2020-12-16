@@ -52,14 +52,33 @@ impl KDTree {
             Split(_, _, _, _, AABB { d: [w, h], .. }) => RgbImage::from_pixel(*w, *h, WHITE),
             _ => return Ok(()),
         };
-        self.plot_inner(img, 0);
+        self.plot_inner(img, 0, 0, 100);
         img.save(path)
     }
 
-    fn plot_inner(&self, img: &mut RgbImage, axis: usize) {
+    pub fn plot_points(&self, path: String, pts: &[[u32; 2]]) {
+        for i in 0.. {
+            let img = &mut match self {
+                Split(_, _, _, _, AABB { d: [w, h], .. }) => RgbImage::from_pixel(*w, *h, WHITE),
+                _ => return,
+            };
+            if self.plot_inner(img, 0, 0, i) {
+                break;
+            }
+            for pt in pts {
+                draw_point(img, *pt, 5, RED);
+            }
+            img.save(path.clone() + &i.to_string() + ".png").unwrap();
+        }
+    }
+
+    fn plot_inner(&self, img: &mut RgbImage, axis: usize, depth: usize, limit: usize) -> bool {
+        if depth > limit {
+            return false;
+        }
+
         match self {
-            Empty => {}
-            Leaf(pt, _) => draw_point(img, *pt, 5, RED),
+            Empty | Leaf(_, _) => true,
             Split(left, right, _, pt, bb) => {
                 let next_axis = (axis + 1) % 2;
 
@@ -69,10 +88,10 @@ impl KDTree {
                 p2[next_axis] += bb.d[next_axis];
 
                 draw_line(img, next_axis, p1, p2, BLUE);
-                draw_point(img, *pt, 5, RED);
 
-                left.plot_inner(img, next_axis);
-                right.plot_inner(img, next_axis);
+                let left_done = left.plot_inner(img, next_axis, depth + 1, limit);
+                let right_done = right.plot_inner(img, next_axis, depth + 1, limit);
+                left_done && right_done
             }
         }
     }
